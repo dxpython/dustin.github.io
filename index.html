@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dustin | Next-Gen AI Systems</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- MathJax for rendering LaTeX formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#0f172a',
+                        dark: '#020617',
+                        light: '#f8fbff',
+                        card: 'rgba(255, 255, 255, 0.55)'
+                    },
+                    fontFamily: {
+                        mono: ['"Fira Code"', '"JetBrains Mono"', 'monospace'],
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-main: radial-gradient(circle at 10% 10%, #ffffff, #f3f8ff 45%, #eaf2ff 100%);
+            --text-main: #0f172a;
+            --glass-bg: rgba(255, 255, 255, 0.52);
+            --glass-border: rgba(37, 99, 235, 0.18);
+            --glass-shadow: rgba(37, 99, 235, 0.12);
+            --math-bg: rgba(255, 255, 255, 0.68);
+            --nav-bg-top: rgba(255, 255, 255, 0.55);
+            --nav-bg-scrolled: rgba(255, 255, 255, 0.9);
+            --grid-color: rgba(37, 99, 235, 0.08);
+        }
+
+        body[data-theme="dark"] {
+            --bg-main: radial-gradient(circle at 12% 8%, #0b1220, #050b17 48%, #020617 100%);
+            --text-main: #e2e8f0;
+            --glass-bg: rgba(15, 23, 42, 0.5);
+            --glass-border: rgba(147, 197, 253, 0.22);
+            --glass-shadow: rgba(15, 23, 42, 0.45);
+            --math-bg: rgba(15, 23, 42, 0.66);
+            --nav-bg-top: rgba(15, 23, 42, 0.5);
+            --nav-bg-scrolled: rgba(15, 23, 42, 0.9);
+            --grid-color: rgba(147, 197, 253, 0.09);
+        }
+
+        body {
+            background: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, sans-serif;
+            transition: background 500ms ease, color 350ms ease;
+        }
+
+        #math-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            opacity: 0.25;
+            pointer-events: none;
+        }
+
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(135deg, #0f172a, #2563eb);
+        }
+
+        .glass-card {
+            position: relative;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 10px 35px var(--glass-shadow);
+            overflow: hidden;
+            transition: background 350ms ease, border-color 350ms ease, box-shadow 350ms ease, transform 300ms ease;
+        }
+
+        .glass-card::before {
+            content: "";
+            position: absolute;
+            width: 160%;
+            height: 160%;
+            left: -30%;
+            top: -30%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.06) 38%, transparent 62%);
+            transform: translate(-20%, -20%);
+            animation: liquidSweep 12s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .glass-dark {
+            background: rgba(15, 23, 42, 0.86);
+            color: #dbeafe;
+            border: 1px solid rgba(147, 197, 253, 0.2);
+            box-shadow: 0 12px 38px rgba(15, 23, 42, 0.32);
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 1.2em;
+            background-color: #2563eb;
+            vertical-align: middle;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .glow-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            z-index: -1;
+            opacity: 0.22;
+            animation: orbDrift 14s ease-in-out infinite;
+        }
+
+        .math-display {
+            overflow-x: auto;
+            padding: 1rem;
+            background: var(--math-bg);
+            border-radius: 0.5rem;
+            border-left: 3px solid #2563eb;
+            margin: 1rem 0;
+            transition: background 350ms ease;
+        }
+
+        .gradient-stroke {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gradient-stroke::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            padding: 1px;
+            border-radius: 0.75rem;
+            background: linear-gradient(120deg, rgba(15, 23, 42, 0.45), rgba(37, 99, 235, 0.35), rgba(191, 219, 254, 0.9));
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .hero-glow {
+            animation: pulseGlow 4s ease-in-out infinite;
+        }
+
+        .floating-card {
+            animation: floatingCard 7s ease-in-out infinite;
+        }
+
+        .flow-line {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .flow-line::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            transform: translateX(-110%);
+            background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.25), transparent);
+            animation: flowAcross 4s linear infinite;
+            pointer-events: none;
+        }
+
+        .formula-card {
+            transition: transform 400ms ease, box-shadow 400ms ease, border-color 400ms ease;
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+
+        .formula-card:hover {
+            transform: translateY(-6px) scale(1.01);
+            box-shadow: 0 18px 45px rgba(37, 99, 235, 0.2);
+            border-color: rgba(37, 99, 235, 0.5);
+        }
+
+        [data-animate] {
+            opacity: 0;
+            transform: translateY(24px) scale(0.98);
+            transition: opacity 700ms ease, transform 700ms ease;
+        }
+
+        [data-animate].is-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .grid-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: -3;
+            pointer-events: none;
+            background-image: linear-gradient(to right, var(--grid-color) 1px, transparent 1px), linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+            background-size: 42px 42px;
+            mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.8), transparent 80%);
+        }
+
+        .section-title {
+            letter-spacing: 0.02em;
+        }
+
+        .metric-pill {
+            background: rgba(37, 99, 235, 0.08);
+            border: 1px solid rgba(37, 99, 235, 0.2);
+        }
+
+        #scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            width: 0%;
+            z-index: 80;
+            background: linear-gradient(90deg, #60a5fa, #2563eb, #1d4ed8);
+            box-shadow: 0 0 14px rgba(37, 99, 235, 0.55);
+        }
+
+        .theme-toggle {
+            width: 40px;
+            height: 40px;
+            border-radius: 9999px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            color: var(--text-main);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: transform 260ms ease, background 300ms ease;
+        }
+
+        .theme-toggle:hover {
+            transform: translateY(-2px) scale(1.04);
+        }
+
+        .headline-shimmer {
+            background: linear-gradient(90deg, #0f172a 20%, #2563eb 45%, #0f172a 70%);
+            background-size: 220% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmerMove 7s linear infinite;
+        }
+
+        .soft-float {
+            animation: softFloat 9s ease-in-out infinite;
+        }
+
+        body[data-theme="dark"] .text-slate-900,
+        body[data-theme="dark"] .text-slate-800 {
+            color: #e2e8f0 !important;
+        }
+
+        body[data-theme="dark"] .text-slate-700,
+        body[data-theme="dark"] .text-slate-600,
+        body[data-theme="dark"] .text-slate-500 {
+            color: #94a3b8 !important;
+        }
+
+        body[data-theme="dark"] .bg-white\/40,
+        body[data-theme="dark"] .bg-white\/70 {
+            background-color: rgba(15, 23, 42, 0.52) !important;
+        }
+
+        body[data-theme="dark"] .border-blue-100,
+        body[data-theme="dark"] .border-blue-100\/70 {
+            border-color: rgba(147, 197, 253, 0.18) !important;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(37, 99, 235, 0.25)); }
+            50% { filter: drop-shadow(0 0 24px rgba(37, 99, 235, 0.4)); }
+        }
+
+        @keyframes floatingCard {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes flowAcross {
+            0% { transform: translateX(-110%); }
+            100% { transform: translateX(110%); }
+        }
+
+        @keyframes liquidSweep {
+            0%, 100% { transform: translate(-22%, -20%) rotate(0deg); }
+            50% { transform: translate(18%, 12%) rotate(14deg); }
+        }
+
+        @keyframes orbDrift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(20px, -25px) scale(1.08); }
+        }
+
+        @keyframes shimmerMove {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        @keyframes softFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+    </style>
+</head>
+
+<body data-theme="light" class="relative overflow-x-hidden selection:bg-primary selection:text-white antialiased">
+    <div id="scroll-progress"></div>
+    <div class="grid-overlay"></div>
+    <canvas id="math-canvas"></canvas>
+    <div class="glow-orb w-[540px] h-[540px] bg-blue-300 top-[-15%] left-[-12%]"></div>
+    <div class="glow-orb w-[620px] h-[620px] bg-blue-500 bottom-[-18%] right-[-12%]"></div>
+
+    <nav class="fixed w-full z-50 glass-card transition-all duration-300 border-b border-blue-100/60" id="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="#" class="font-mono text-xl font-bold text-slate-900">D<span class="text-primary">.</span></a>
+                <div class="hidden md:flex items-center space-x-8 font-mono text-sm text-slate-700">
+                    <a href="#home" class="hover:text-primary transition-colors">01. Home</a>
+                    <a href="#strengths" class="hover:text-primary transition-colors">02. Strengths</a>
+                    <a href="#about" class="hover:text-primary transition-colors">03. About</a>
+                    <a href="#research" class="hover:text-primary transition-colors">04. Research</a>
+                    <a href="#mathematics" class="hover:text-primary transition-colors">05. Mathematics</a>
+                    <a href="#framework" class="hover:text-primary transition-colors">06. Journey</a>
+                    <a href="#contact" class="hover:text-primary transition-colors">07. Contact</a>
+                </div>
+                <button id="theme-toggle" class="theme-toggle ml-4" aria-label="Toggle theme">
+                    <i id="theme-icon" class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <section id="home" class="min-h-screen flex items-center pt-20 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div class="grid lg:grid-cols-12 gap-8 items-center">
+                <div class="lg:col-span-7" data-animate data-delay="0">
+                    <p class="font-mono text-primary text-sm tracking-[0.22em] uppercase mb-4">Personal Homepage</p>
+                    <h1 class="text-5xl md:text-7xl font-black tracking-tight text-slate-950 hero-glow headline-shimmer">
+                        Hi, I'm Dustin
+                    </h1>
+                    <p class="mt-6 text-lg md:text-xl text-slate-700 max-w-3xl leading-relaxed">
+                        I design high-performance intelligence systems with strong reasoning pathways, dynamic computation,
+                        and production-grade scalability across complex tasks.
+                    </p>
+                    <p class="mt-4 text-base md:text-lg text-slate-600 max-w-3xl leading-relaxed">
+                        My work focuses on building unified AI systems that can retrieve, reason, and adapt under real constraints.
+                        I enjoy turning abstract mathematical ideas into robust architectures, and transforming architecture ideas
+                        into verifiable, executable, and extensible systems.
+                    </p>
+                    <p class="mt-4 text-base md:text-lg text-slate-600 max-w-3xl leading-relaxed">
+                        Beyond model accuracy, I care deeply about interpretability, system stability, and optimization efficiency.
+                        I aim to design intelligence that is not only powerful, but also structured, transparent, and controllable.
+                    </p>
+                    <div class="text-xl md:text-2xl mt-6 h-10 text-slate-700">
+                        <span>I build </span><span id="typed-text" class="font-mono font-bold text-primary"></span><span class="cursor"></span>
+                    </div>
+                    <div class="mt-10 flex flex-wrap gap-4 font-mono">
+                        <a href="#research" class="px-7 py-3 rounded-lg border border-primary text-primary hover:bg-primary hover:text-white transition-all duration-300 gradient-stroke">My Research</a>
+                        <a href="#contact" class="px-7 py-3 rounded-lg border border-slate-300 text-slate-700 hover:border-primary hover:text-primary transition-all duration-300">Contact Me</a>
+                    </div>
+                </div>
+                <div class="lg:col-span-5 space-y-5" data-animate data-delay="120">
+                    <div class="glass-card gradient-stroke p-6 rounded-xl floating-card soft-float">
+                        <p class="text-sm font-mono text-slate-500 uppercase tracking-widest">Core Value</p>
+                        <p class="mt-3 text-slate-800 leading-relaxed">Strong at converting complex research problems into optimization formulations and engineering-ready architectures.</p>
+                        <div class="mt-4 space-y-2 text-sm text-slate-600">
+                            <p><i class="fas fa-check text-primary mr-2"></i>From theoretical abstraction to executable formulation</p>
+                            <p><i class="fas fa-check text-primary mr-2"></i>From architecture proposal to scalable implementation</p>
+                            <p><i class="fas fa-check text-primary mr-2"></i>From experimental signal to system-level iteration</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass-card p-5 rounded-xl">
+                            <p class="text-3xl font-black text-primary">Algorithm</p>
+                            <p class="text-slate-600 text-sm">Formal objective design</p>
+                        </div>
+                        <div class="glass-card p-5 rounded-xl">
+                            <p class="text-3xl font-black text-primary">System</p>
+                            <p class="text-slate-600 text-sm">Architecture implementation</p>
+                        </div>
+                        <div class="glass-card p-5 rounded-xl">
+                            <p class="text-3xl font-black text-primary">Reasoning</p>
+                            <p class="text-slate-600 text-sm">Interpretable pathways</p>
+                        </div>
+                        <div class="glass-card p-5 rounded-xl">
+                            <p class="text-3xl font-black text-primary">Scale</p>
+                            <p class="text-slate-600 text-sm">Multimodal expansion</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="strengths" class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="glass-card rounded-2xl p-8" data-animate data-delay="100">
+            <h2 class="text-3xl md:text-4xl font-black text-slate-900 section-title">What I Can Deliver</h2>
+            <div class="mt-6 grid md:grid-cols-3 gap-5">
+                <div class="p-5 rounded-xl bg-white/70 border border-blue-100 formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Capability A</p>
+                    <h3 class="mt-2 font-bold text-slate-900">Problem Formalization</h3>
+                    <p class="mt-2 text-slate-600 text-sm">Translate vague requirements into explicit optimization targets, constraints, and evaluation metrics.</p>
+                    <p class="mt-2 text-slate-500 text-xs">Deliverables: objective decomposition, loss design, consistency constraints, and metric protocol.</p>
+                </div>
+                <div class="p-5 rounded-xl bg-white/70 border border-blue-100 formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Capability B</p>
+                    <h3 class="mt-2 font-bold text-slate-900">Architecture Innovation</h3>
+                    <p class="mt-2 text-slate-600 text-sm">Design new computation patterns beyond static pipelines, including routing, manifold constraints, and structure search.</p>
+                    <p class="mt-2 text-slate-500 text-xs">Deliverables: adaptive modules, routing mechanisms, topology search space, and compute-control strategy.</p>
+                </div>
+                <div class="p-5 rounded-xl bg-white/70 border border-blue-100 formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Capability C</p>
+                    <h3 class="mt-2 font-bold text-slate-900">Research-to-System Execution</h3>
+                    <p class="mt-2 text-slate-600 text-sm">Bridge theory and implementation to build prototypes that are interpretable, scalable, and deployable.</p>
+                    <p class="mt-2 text-slate-500 text-xs">Deliverables: reproducible experiments, modular codebase, benchmarking suite, and deployment-ready prototype.</p>
+                </div>
+            </div>
+            <div class="mt-6 grid md:grid-cols-2 gap-5">
+                <div class="p-5 rounded-xl bg-white/70 border border-blue-100 formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Capability D</p>
+                    <h3 class="mt-2 font-bold text-slate-900">Mathematical Depth</h3>
+                    <p class="mt-2 text-slate-600 text-sm">Build optimization frameworks that unify retrieval quality, reasoning consistency, architecture efficiency, and multi-agent collaboration.</p>
+                </div>
+                <div class="p-5 rounded-xl bg-white/70 border border-blue-100 formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Capability E</p>
+                    <h3 class="mt-2 font-bold text-slate-900">Cross-Disciplinary Communication</h3>
+                    <p class="mt-2 text-slate-600 text-sm">Translate between research language, engineering constraints, and product requirements to drive end-to-end progress efficiently.</p>
+                </div>
+            </div>
+
+            <div class="mt-8">
+                <h3 class="text-2xl font-bold text-slate-900">Programming Languages</h3>
+                <p class="mt-2 text-slate-600 text-sm">Languages I use for algorithm research, high-performance implementation, and production system development.</p>
+                <div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="glass-card p-4 rounded-xl formula-card">
+                        <p class="text-lg font-black text-primary">Python</p>
+                        <p class="text-xs text-slate-600 mt-1">ML research, prototyping, training pipelines</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl formula-card">
+                        <p class="text-lg font-black text-primary">C++</p>
+                        <p class="text-xs text-slate-600 mt-1">High-performance modules, inference acceleration</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl formula-card">
+                        <p class="text-lg font-black text-primary">CUDA</p>
+                        <p class="text-xs text-slate-600 mt-1">Custom kernels, GPU parallel optimization</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl formula-card">
+                        <p class="text-lg font-black text-primary">JavaScript / TypeScript</p>
+                        <p class="text-xs text-slate-600 mt-1">Interactive tools, visualization, web systems</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl formula-card">
+                        <p class="text-lg font-black text-primary">SQL</p>
+                        <p class="text-xs text-slate-600 mt-1">Data querying, analytics, retrieval pipelines</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl formula-card">
+                        <p class="text-lg font-black text-primary">Go</p>
+                        <p class="text-xs text-slate-600 mt-1">High-concurrency services and system tooling</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl formula-card">
+                        <p class="text-lg font-black text-primary">MATLAB</p>
+                        <p class="text-xs text-slate-600 mt-1">Numerical simulation and algorithm validation</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl formula-card">
+                        <p class="text-lg font-black text-primary">C#</p>
+                        <p class="text-xs text-slate-600 mt-1">Backend engineering and cross-platform applications</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="grid lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-5 glass-dark rounded-2xl p-8 flow-line" data-animate data-delay="0">
+                <p class="font-mono text-blue-200 text-sm tracking-[0.16em] uppercase">Ability Framework</p>
+                <h2 class="text-3xl md:text-4xl font-bold mt-3 section-title">From Data to Adaptive Computation</h2>
+                <div class="math-display mt-6 text-sm md:text-base bg-slate-900/40 border-l-blue-300 text-blue-100">
+                    $$ \textbf{Data} \rightarrow \textbf{Representation} \rightarrow \textbf{Retrieval} \rightarrow
+                    \textbf{Reasoning} \rightarrow \textbf{Adaptive Computation} $$
+                </div>
+                <p class="mt-5 text-blue-100/90 leading-relaxed">
+                    The goal is a cognitive architecture where retrieval, reasoning, and generation are jointly optimized with structural constraints and interpretable execution trajectories.
+                </p>
+                <p class="mt-4 text-blue-100/85 leading-relaxed">
+                    My long-term direction is to establish a unified paradigm that makes intelligence proactive rather than passive:
+                    systems that decide what to retrieve, how to reason, where to allocate compute, and how to maintain global consistency.
+                </p>
+            </div>
+            <div class="lg:col-span-7 grid md:grid-cols-2 gap-5" data-animate data-delay="120">
+                <div class="glass-card p-6 rounded-xl formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Capability 01</p>
+                    <h3 class="text-xl font-bold mt-2 text-slate-900">Structured Retrieval</h3>
+                    <p class="mt-3 text-slate-600">Treat retrieval as a formal optimization problem over semantic and graph-aware constraints.</p>
+                </div>
+                <div class="glass-card p-6 rounded-xl formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Capability 02</p>
+                    <h3 class="text-xl font-bold mt-2 text-slate-900">Adaptive Routing</h3>
+                    <p class="mt-3 text-slate-600">Dynamically route and reshape computational paths by input-dependent manifold-aware policies.</p>
+                </div>
+                <div class="glass-card p-6 rounded-xl formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Capability 03</p>
+                    <h3 class="text-xl font-bold mt-2 text-slate-900">Multimodal Structure Search</h3>
+                    <p class="mt-3 text-slate-600">Automatically discover optimal fusion routes across vision-language modalities and scales.</p>
+                </div>
+                <div class="glass-card p-6 rounded-xl formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Capability 04</p>
+                    <h3 class="text-xl font-bold mt-2 text-slate-900">Collaborative Consistency</h3>
+                    <p class="mt-3 text-slate-600">Balance conflict minimization and global coordination in multi-agent optimization systems.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="research" class="py-24 relative z-10 border-y border-blue-100/70 bg-white/40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl md:text-5xl font-black text-slate-900 section-title mb-12" data-animate>
+                What I Am Working On
+            </h2>
+            <div class="space-y-8">
+                <article class="glass-card gradient-stroke formula-card flow-line p-8 rounded-2xl" data-animate>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-2xl font-bold text-slate-900">Structured Retrieval-Reasoning Engine</h3>
+                        <span class="metric-pill px-3 py-1 rounded-full text-xs font-mono text-primary">Retrieval + Reasoning</span>
+                    </div>
+                    <p class="text-slate-700 leading-relaxed">Transforms retrieval from heuristic filtering into an optimizable structured reasoning process with interpretable, stage-consistent trajectories.</p>
+                    <div class="math-display">
+                        $$ \mathcal{D}^* = \arg\max_{\mathcal{D}_k \subset \mathcal{C}}
+                        \sum_{i=1}^{k}
+                        \Big(
+                        \lambda_1 \cdot \text{Sim}(q, d_i)
+                        + \lambda_2 \cdot \text{GraphRel}(d_i, \mathcal{G})
+                        + \lambda_3 \cdot \text{Cons}_{stage}(d_i)
+                        \Big) $$
+                    </div>
+                    <div class="math-display">
+                        $$ \mathcal{L}_{SEG} = \sum_{(i,j) \in \mathcal{E}}
+                        \| f(d_i) - f(d_j) \|_2^2 $$
+                    </div>
+                </article>
+
+                <article class="glass-card gradient-stroke formula-card flow-line p-8 rounded-2xl" data-animate>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-2xl font-bold text-slate-900">Manifold-Stable Adaptive Computation Core</h3>
+                        <span class="metric-pill px-3 py-1 rounded-full text-xs font-mono text-primary">Dynamic Architecture</span>
+                    </div>
+                    <p class="text-slate-700 leading-relaxed">A manifold-constrained framework with input-driven routing, enabling dynamic depth and structural reconfiguration beyond static Transformer stacks.</p>
+                    <div class="math-display">
+                        $$ \mathbf{h}_{t+1} = \mathbf{h}_t + \sum_{k=1}^{K}
+                        \alpha_k(x) \cdot \mathcal{F}_k(\mathbf{h}_t),
+                        \quad
+                        \text{s.t. } \mathbf{h}_t \in \mathcal{M} $$
+                    </div>
+                </article>
+
+                <article class="glass-card gradient-stroke formula-card flow-line p-8 rounded-2xl" data-animate>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-2xl font-bold text-slate-900">Cross-Modal Architecture Optimization Stack</h3>
+                        <span class="metric-pill px-3 py-1 rounded-full text-xs font-mono text-primary">Fusion + Coordination</span>
+                    </div>
+                    <p class="text-slate-700 leading-relaxed">Jointly optimizes multimodal fusion structures and multi-agent collaboration under cost, conflict, and consistency constraints.</p>
+                    <div class="math-display">
+                        $$ \mathcal{A}^* = \arg\min_{\mathcal{A} \in \Omega}
+                        \Big(
+                        \mathcal{L}_{task}(\mathcal{A}) + \beta \cdot \text{Cost}(\mathcal{A})
+                        \Big) $$
+                    </div>
+                    <div class="math-display">
+                        $$ \min_{\{\pi_i\}}
+                        \sum_{i} \mathcal{L}_i(\pi_i)
+                        + \gamma \cdot \mathcal{C}_{conflict}
+                        + \eta \cdot \mathcal{C}_{consistency} $$
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="mathematics" class="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="glass-card rounded-2xl p-8 md:p-10" data-animate data-delay="60">
+            <h2 class="text-3xl md:text-5xl font-black text-slate-900 section-title">My Mathematical System</h2>
+            <p class="mt-4 text-slate-600 max-w-3xl">
+                My own objective design language for structured retrieval, executable reasoning, adaptive computation, multimodal architecture optimization, and multi-agent consistency control.
+            </p>
+
+            <div class="mt-8 grid md:grid-cols-2 gap-6">
+                <div class="math-display">
+                    $$ \mathcal{J}_{\text{global}} = \omega_1\mathcal{J}_{ret} + \omega_2\mathcal{J}_{seg} + \omega_3\mathcal{J}_{adp} + \omega_4\mathcal{J}_{nas} + \omega_5\mathcal{J}_{agent} $$
+                </div>
+                <div class="math-display">
+                    $$ \mathcal{D}^{*} = \arg\max_{\mathcal{D}_k \subset \mathcal{C}} \sum_{i=1}^{k}\left[\lambda_1\text{Sim}(q,d_i)+\lambda_2\text{GraphRel}(d_i,\mathcal{G})+\lambda_3\text{Cons}_{stage}(d_i)\right] $$
+                </div>
+                <div class="math-display">
+                    $$ \mathcal{J}_{ret} = -\sum_{i=1}^{k}\left[\lambda_1\text{Sim}(q,d_i)+\lambda_2\text{GraphRel}(d_i,\mathcal{G})+\lambda_3\text{Cons}_{stage}(d_i)\right] + \lambda_4\text{Redundancy}(\mathcal{D}_k) $$
+                </div>
+                <div class="math-display">
+                    $$ \mathcal{J}_{seg} = \sum_{(i,j)\in\mathcal{E}} \|f(d_i)-f(d_j)\|_2^2 + \tau \sum_i\|f(d_i)\|_2^2 + \zeta\sum_{(i,j)\in\mathcal{E}} \max(0, m-\cos(z_i,z_j)) $$
+                </div>
+                <div class="math-display">
+                    $$ \mathbf{h}_{t+1} = \mathbf{h}_t + \sum_{k=1}^{K}\alpha_k(x)\mathcal{F}_k(\mathbf{h}_t), \quad \sum_k\alpha_k(x)=1,\ \alpha_k(x)\ge 0,\ \mathbf{h}_t\in\mathcal{M} $$
+                </div>
+                <div class="math-display">
+                    $$ \mathcal{J}_{adp} = \sum_t \left[\ell_t + \mu_1 \|\nabla_{\mathcal{M}} \mathbf{h}_t\|_2^2 + \mu_2 \text{RouteEntropy}(\alpha(x_t))\right] $$
+                </div>
+            </div>
+
+            <div class="mt-6 grid md:grid-cols-2 gap-6">
+                <div class="math-display">
+                    $$ \mathcal{A}^{*} = \arg\min_{\mathcal{A}\in\Omega} \left[\mathcal{L}_{task}(\mathcal{A}) + \beta\text{Cost}(\mathcal{A}) + \xi\text{Latency}(\mathcal{A}) + \nu\text{MisAlign}(\mathcal{A})\right] $$
+                </div>
+                <div class="math-display">
+                    $$ \mathcal{J}_{nas} = \mathbb{E}_{\mathcal{A}\sim p_{\phi}(\Omega)}[\mathcal{L}_{task}] + \beta \mathbb{E}[\text{Cost}] + \xi \mathbb{E}[\text{Latency}] $$
+                </div>
+                <div class="math-display">
+                    $$ \min_{\{\pi_i\}} \sum_i \mathcal{L}_i(\pi_i) + \gamma\mathcal{C}_{conflict} + \eta\mathcal{C}_{consistency} + \upsilon\mathcal{C}_{communication} $$
+                </div>
+                <div class="math-display">
+                    $$ \mathcal{J}_{agent} = \sum_i \mathbb{E}\!\left[\ell_i\right] + \gamma \sum_{(i,j)}\text{KL}(p_i\|p_j) + \eta \sum_{(i,j)}\|u_i-u_j\|_2^2 $$
+                </div>
+            </div>
+
+            <div class="mt-8 grid md:grid-cols-3 gap-5">
+                <div class="glass-card p-5 rounded-xl formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Retrieval-Reasoning Constraints</p>
+                    <div class="math-display text-sm">
+                        $$ \mathbb{P}(d_i \in \mathcal{D}^{*}\mid q,\mathcal{G}) \propto \exp\left(\lambda_1 s_i+\lambda_2 g_i+\lambda_3 c_i\right) $$
+                        $$ \mathcal{C}_{stage} = \sum_{t=1}^{T-1}\|r_{t+1}-\Psi_t(r_t)\|_2^2 $$
+                        $$ \mathcal{J}_{path} = - \sum_{p\in\mathcal{P}} w_p \log \Pr(p\mid q,\mathcal{G}) $$
+                    </div>
+                </div>
+                <div class="glass-card p-5 rounded-xl formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Adaptive Computation Geometry</p>
+                    <div class="math-display text-sm">
+                        $$ \text{CurvPenalty} = \sum_t \|\nabla_{\mathbf{h}_t}^{2}\Phi(\mathbf{h}_t)\|_{F}^{2} $$
+                        $$ \mathcal{J}_{route} = -\sum_k \alpha_k(x)\log \alpha_k(x) + \chi\left\|\alpha(x)-\bar{\alpha}\right\|_2^2 $$
+                        $$ \text{Stability} = \sup_t \|\mathbf{h}_{t+1}-\mathbf{h}_t\|_2 \le \epsilon_s $$
+                    </div>
+                </div>
+                <div class="glass-card p-5 rounded-xl formula-card">
+                    <p class="font-mono text-xs uppercase tracking-widest text-primary">Search, Generalization, Coordination</p>
+                    <div class="math-display text-sm">
+                        $$ \mathcal{R}(f)\le \hat{\mathcal{R}}(f)+\mathcal{O}\!\left(\sqrt{\frac{\text{VC}(f)}{n}}\right),\quad \min_{\theta}\max_{\|\delta\|_p\le\epsilon}\ell(f_{\theta}(x+\delta),y) $$
+                        $$ \nabla_{\phi}\mathbb{E}_{\mathcal{A}\sim p_{\phi}}[\mathcal{L}] = \mathbb{E}_{\mathcal{A}}\!\left[\mathcal{L}(\mathcal{A})\nabla_{\phi}\log p_{\phi}(\mathcal{A})\right] $$
+                        $$ \nabla_{\pi_i} J = \mathbb{E}\!\left[\nabla_{\pi_i}\log \pi_i(a_i|s)\,A_i\right],\quad A_i = Q_i - V_i $$
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="framework" class="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="grid lg:grid-cols-2 gap-8">
+            <div class="glass-card p-8 rounded-2xl" data-animate>
+                <h3 class="text-2xl font-bold text-slate-900">How I Approach Problems</h3>
+                <div class="mt-6 space-y-4">
+                    <div class="p-4 rounded-lg bg-white/70 border border-blue-100">
+                        <p class="font-mono text-primary text-xs uppercase">Layer 01</p>
+                        <p class="text-slate-700 mt-1">Structured semantic retrieval with graph-regularized constraints.</p>
+                        <div class="math-display text-sm">$$ \mathcal{J}_1=\sum_i w_i \phi_i(q,d_i,\mathcal{G}) $$</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-white/70 border border-blue-100">
+                        <p class="font-mono text-primary text-xs uppercase">Layer 02</p>
+                        <p class="text-slate-700 mt-1">Execution-graph consistency for interpretable reasoning paths.</p>
+                        <div class="math-display text-sm">$$ \mathcal{J}_2=\sum_{(i,j)\in\mathcal{E}}\|z_i-z_j\|_2^2 $$</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-white/70 border border-blue-100">
+                        <p class="font-mono text-primary text-xs uppercase">Layer 03</p>
+                        <p class="text-slate-700 mt-1">Adaptive manifold-constrained computation and architecture search.</p>
+                        <div class="math-display text-sm">$$ \mathcal{J}_3=\mathcal{L}_{task}+\beta\cdot\text{Cost}+\rho\cdot\text{GeoPenalty} $$</div>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-card p-8 rounded-2xl" data-animate>
+                <h3 class="text-2xl font-bold text-slate-900">My Research Journey</h3>
+                <div class="mt-6 space-y-5">
+                    <div class="border-l-2 border-primary pl-4">
+                        <p class="text-xs font-mono text-primary">Phase I</p>
+                        <p class="font-semibold text-slate-900">Semantic Retrieval Formalization</p>
+                        <p class="text-slate-600 text-sm">From heuristic filtering to constrained objective optimization.</p>
+                    </div>
+                    <div class="border-l-2 border-primary pl-4">
+                        <p class="text-xs font-mono text-primary">Phase II</p>
+                        <p class="font-semibold text-slate-900">Adaptive Computation Design</p>
+                        <p class="text-slate-600 text-sm">Noema and manifold-stable dynamic routing mechanisms.</p>
+                    </div>
+                    <div class="border-l-2 border-primary pl-4">
+                        <p class="text-xs font-mono text-primary">Phase III</p>
+                        <p class="font-semibold text-slate-900">Unified Multimodal Cognition</p>
+                        <p class="text-slate-600 text-sm">Fusion optimization plus scalable multi-agent consistency.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="glass-dark rounded-2xl p-8" data-animate>
+            <h3 class="text-2xl font-bold">Potential Publication Directions</h3>
+            <div class="mt-6 grid md:grid-cols-3 gap-4 text-sm">
+                <div class="bg-slate-900/50 p-4 rounded-lg border border-blue-200/20">
+                    <p class="font-mono text-blue-300">Paper Track A</p>
+                    <p class="mt-2 text-blue-100">Semantic execution graph regularization for stage-aware retrieval pipelines.</p>
+                </div>
+                <div class="bg-slate-900/50 p-4 rounded-lg border border-blue-200/20">
+                    <p class="font-mono text-blue-300">Paper Track B</p>
+                    <p class="mt-2 text-blue-100">Manifold-stable dynamic computation with adaptive expert routing.</p>
+                </div>
+                <div class="bg-slate-900/50 p-4 rounded-lg border border-blue-200/20">
+                    <p class="font-mono text-blue-300">Paper Track C</p>
+                    <p class="mt-2 text-blue-100">Multimodal architecture search under latency-aware cost constraints.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact" class="py-24 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10" data-animate>
+        <p class="font-mono text-primary text-sm tracking-[0.18em] uppercase">Let's connect</p>
+        <h2 class="text-4xl md:text-5xl font-black text-slate-900 mt-4">Open for Research Collaboration</h2>
+        <p class="text-slate-600 mt-6 text-lg leading-relaxed">
+            I welcome collaborations on retrieval-reasoning integration, adaptive model architectures, and multimodal intelligent systems.
+        </p>
+        <a href="mailto:dustin@example.com" class="inline-block mt-10 px-10 py-4 rounded-lg font-mono text-white bg-primary hover:bg-blue-700 transition-colors duration-300">
+            Start a Conversation
+        </a>
+    </section>
+
+    <footer class="py-8 text-center text-slate-500 font-mono text-xs border-t border-blue-100 relative z-10">
+        <p>Designed & Built by Dustin · Personal Homepage</p>
+        <p class="mt-2">$$ \forall x \in \text{Complex Problems},\ \exists \mathcal{S}\ \text{such that}\ \mathcal{S}(x)\ \text{is structured and adaptive}. $$</p>
+    </footer>
+
+    <script>
+        const words = [
+            "Reasoning-Centric Intelligent Systems.",
+            "Dynamically Reconfigurable Architectures.",
+            "Cross-Modal Optimization Pipelines.",
+            "Scalable, Explainable AI Execution."
+        ];
+        let i = 0;
+        let timer;
+
+        function typingEffect() {
+            const word = words[i].split("");
+            const loopTyping = function () {
+                if (word.length > 0) {
+                    document.getElementById("typed-text").innerHTML += word.shift();
+                } else {
+                    setTimeout(deletingEffect, 1800);
+                    return;
+                }
+                timer = setTimeout(loopTyping, 90);
+            };
+            loopTyping();
+        }
+
+        function deletingEffect() {
+            const word = words[i].split("");
+            const loopDeleting = function () {
+                if (word.length > 0) {
+                    word.pop();
+                    document.getElementById("typed-text").innerHTML = word.join("");
+                } else {
+                    i = words.length > i + 1 ? i + 1 : 0;
+                    typingEffect();
+                    return;
+                }
+                timer = setTimeout(loopDeleting, 35);
+            };
+            loopDeleting();
+        }
+
+        function initMathCanvas() {
+            const canvas = document.getElementById("math-canvas");
+            const ctx = canvas.getContext("2d");
+            let width;
+            let height;
+            let particles = [];
+            const mathSymbols = ["∫", "∑", "∞", "∂", "∇", "≈", "θ", "λ", "σ", "π", "Δ", "RAG", "NAS", "M"];
+
+            function resize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+
+            class MathParticle {
+                constructor() {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() * height;
+                    this.symbol = mathSymbols[Math.floor(Math.random() * mathSymbols.length)];
+                    this.size = Math.random() * 13 + 9;
+                    this.speedY = Math.random() * 0.5 + 0.18;
+                    this.opacity = Math.random() * 0.24 + 0.08;
+                }
+
+                update() {
+                    this.y -= this.speedY;
+                    if (this.y < -45) {
+                        this.y = height + 45;
+                        this.x = Math.random() * width;
+                    }
+                }
+
+                draw() {
+                    ctx.font = `${this.size}px "JetBrains Mono", monospace`;
+                    ctx.fillStyle = `rgba(37, 99, 235, ${this.opacity})`;
+                    ctx.fillText(this.symbol, this.x, this.y);
+                }
+            }
+
+            function createParticles() {
+                particles = [];
+                const numParticles = Math.floor(window.innerWidth / 18);
+                for (let j = 0; j < numParticles; j++) {
+                    particles.push(new MathParticle());
+                }
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, width, height);
+                for (let j = 0; j < particles.length; j++) {
+                    particles[j].update();
+                    particles[j].draw();
+                }
+                requestAnimationFrame(animate);
+            }
+
+            window.addEventListener("resize", () => {
+                resize();
+                createParticles();
+            });
+
+            resize();
+            createParticles();
+            animate();
+        }
+
+        function initScrollAnimations() {
+            const animatedEls = document.querySelectorAll("[data-animate]");
+            const io = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const delay = Number(entry.target.dataset.delay || 0);
+                        entry.target.style.transitionDelay = `${delay}ms`;
+                        entry.target.classList.add("is-visible");
+                        io.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.14 });
+            animatedEls.forEach((el) => io.observe(el));
+        }
+
+        function applyNavbarStyle() {
+            const navbar = document.getElementById("navbar");
+            const isDark = document.body.dataset.theme === "dark";
+            if (window.scrollY > 40) {
+                navbar.style.background = isDark ? "var(--nav-bg-scrolled)" : "var(--nav-bg-scrolled)";
+                navbar.classList.add("shadow-lg");
+            } else {
+                navbar.style.background = isDark ? "var(--nav-bg-top)" : "var(--nav-bg-top)";
+                navbar.classList.remove("shadow-lg");
+            }
+        }
+
+        function initThemeToggle() {
+            const body = document.body;
+            const toggle = document.getElementById("theme-toggle");
+            const icon = document.getElementById("theme-icon");
+            const savedTheme = localStorage.getItem("theme-preference");
+            const initialTheme = savedTheme || "light";
+            body.dataset.theme = initialTheme;
+            icon.className = initialTheme === "dark" ? "fas fa-sun" : "fas fa-moon";
+
+            toggle.addEventListener("click", () => {
+                const current = body.dataset.theme;
+                const next = current === "dark" ? "light" : "dark";
+                body.dataset.theme = next;
+                icon.className = next === "dark" ? "fas fa-sun" : "fas fa-moon";
+                localStorage.setItem("theme-preference", next);
+                applyNavbarStyle();
+            });
+        }
+
+        function initScrollProgress() {
+            const progressEl = document.getElementById("scroll-progress");
+            const updateProgress = () => {
+                const scrollTop = window.scrollY;
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+                progressEl.style.width = `${progress}%`;
+            };
+            updateProgress();
+            window.addEventListener("scroll", updateProgress);
+        }
+
+        function initTiltCards() {
+            const cards = document.querySelectorAll(".formula-card");
+            cards.forEach((card) => {
+                card.addEventListener("mousemove", (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const rotateY = ((x / rect.width) - 0.5) * 6;
+                    const rotateX = ((y / rect.height) - 0.5) * -6;
+                    card.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`;
+                });
+                card.addEventListener("mouseleave", () => {
+                    card.style.transform = "";
+                });
+            });
+        }
+
+        window.addEventListener("scroll", applyNavbarStyle);
+
+        window.onload = function () {
+            initThemeToggle();
+            typingEffect();
+            initMathCanvas();
+            initScrollAnimations();
+            initScrollProgress();
+            initTiltCards();
+            applyNavbarStyle();
+        };
+    </script>
+</body>
+
+</html>
